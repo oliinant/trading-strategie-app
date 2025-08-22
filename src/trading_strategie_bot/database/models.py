@@ -2,6 +2,8 @@ from sqlalchemy import create_engine, Column, UUID, String, DECIMAL, ForeignKey,
 import uuid
 from sqlalchemy.orm import declarative_base, declared_attr, relationship
 from datetime import datetime, timezone
+from dotenv import load_dotenv
+import os
 from .events import (
     fetch_model_obj_by_id, 
     fetch_holding_by_ticker, 
@@ -14,7 +16,11 @@ from .events import (
     check_holding_for_exit
 )
 
-engine = create_engine("sqlite:///accounts.db", echo=True)
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+engine = create_engine(DATABASE_URL, echo=True)
 Base = declarative_base()
 
 
