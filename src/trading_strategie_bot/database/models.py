@@ -1,6 +1,6 @@
-from sqlalchemy import create_engine, Column, UUID, String, DECIMAL, ForeignKey, Integer, JSON, DateTime, UniqueConstraint
+from sqlalchemy import create_engine, Column, UUID, String, DECIMAL, ForeignKey, Integer, JSON, DateTime, UniqueConstraint, event
 import uuid
-from sqlalchemy.orm import declarative_base, declared_attr, relationship, events
+from sqlalchemy.orm import declarative_base, declared_attr, relationship
 from datetime import datetime, timezone
 from .events import (
     fetch_model_obj_by_id, 
@@ -70,7 +70,7 @@ class Holding(BaseModel):
     
     test_id = Column(UUID, ForeignKey("tests.id"), nullable=False)
     ticker = Column(String, nullable=False)
-    __table_args__ = (UniqueConstraint("test_id", "ticker", name="test_ticker_uc"))
+    __table_args__ = (UniqueConstraint("test_id", "ticker", name="test_ticker_uc"),)
     
     shares = Column(DECIMAL(25, 4), nullable=False)
     
@@ -122,7 +122,7 @@ class Sell(Trade):
     }
 
 
-@events.listens_for(Buy, "before_insert")
+@event.listens_for(Buy, "before_insert")
 def validate_buy_in(mapper, connection, target):
     target._test = fetch_model_obj_by_id(connection, target.test_id)
     target._total_cost = calc_total(target.shares, target.entry_price)
@@ -130,7 +130,7 @@ def validate_buy_in(mapper, connection, target):
     require_balance(target._test)
     check_balance_for_entry(target)
     
-@events.listens_for(Buy, "after_insert")
+@event.listens_for(Buy, "after_insert")
 def update_data_buy(mapper, connection, target):
     holding = fetch_holding_by_ticker(connection, target.ticker)
     
@@ -138,7 +138,7 @@ def update_data_buy(mapper, connection, target):
     update_holdings(connection, target, holding)
 
 
-@events.listens_for(Sell, "before_insert")
+@event.listens_for(Sell, "before_insert")
 def validate_exit(mapper, connection, target):
     target._test = fetch_model_obj_by_id(connection, target.test_id)
     target._holding = fetch_holding_by_ticker(connection, target.ticker)
@@ -147,7 +147,7 @@ def validate_exit(mapper, connection, target):
     holding_exists(target._holding)
     check_holding_for_exit(target)
     
-@events.listens_for(Sell, "after_insert")
+@event.listens_for(Sell, "after_insert")
 def update_data_sell(mapper, connection, target):
     total_earnings = calc_total(target.shares, target.exit_price)
     
