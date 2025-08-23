@@ -1,3 +1,5 @@
 SQLAlchemy
 pytest
 -e .
+python-dotenv
+psycopg2-binary
