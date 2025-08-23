@@ -5,15 +5,13 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 import os
 from .events import (
-    fetch_backtest_obj_by_id, 
-    fetch_holding_by_ticker, 
-    require_balance, 
-    calc_total, 
-    check_balance_for_entry, 
-    update_balance, 
-    update_holdings, 
-    holding_exists, 
-    check_holding_for_exit
+    prepare_backtest_for_buy_in,
+    prepare_holding_for_buy_in,
+    prepare_backtest_for_exit,
+    prepare_holding_for_exit,
+    update_balance_holding_by_id,
+    create_new_holding
+    
 )
 
 load_dotenv()
@@ -130,32 +128,25 @@ class Sell(Trade):
 
 @event.listens_for(Buy, "before_insert")
 def validate_buy_in(mapper, connection, target):
-    target._backtest = fetch_backtest_obj_by_id(connection, target.backtest_id)
-    target._total_cost = calc_total(target.shares, target.entry_price)
-    
-    require_balance(target._backtest)
-    check_balance_for_entry(target)
+    target._updated_balance = prepare_backtest_for_buy_in
+    target._updated_shares = prepare_holding_for_buy_in
     
 @event.listens_for(Buy, "after_insert")
-def update_data_buy(mapper, connection, target):
-    holding = fetch_holding_by_ticker(connection, target.ticker)
+def update_backtest_buy(mapper, connection, target):
+    update_balance_holding_by_id(connection, "backtests", target._backtest["balance"], target._updated_balance, target.backtest["id"])
     
-    update_balance(connection, target, target._total_cost, -1)
-    update_holdings(connection, target, holding)
+    if target._updated_shares:
+        update_balance_holding_by_id(connection, "holdings", target._holding["shares"], target._updated_shares, target.holding["id"])
+    else:
+        create_new_holding(connection, target._backtest["id"], target.ticker, target.shares)
 
 
 @event.listens_for(Sell, "before_insert")
 def validate_exit(mapper, connection, target):
-    target._backtest = fetch_backtest_obj_by_id(connection, target.backtest_id)
-    target._holding = fetch_holding_by_ticker(connection, target.ticker)
-    
-    require_balance(target._backtest)
-    holding_exists(target._holding)
-    check_holding_for_exit(target)
+    target._updated_balance = prepare_backtest_for_exit()
+    target._updated_shares = prepare_holding_for_exit()
     
 @event.listens_for(Sell, "after_insert")
 def update_data_sell(mapper, connection, target):
-    total_earnings = calc_total(target.shares, target.exit_price)
-    
-    update_balance(connection, target, total_earnings)
-    update_holdings(connection, target, target._holding -1)
+    update_balance_holding_by_id(connection, "backtests", "balance", target._updated_balance, target._backtest["id"])
+    update_balance_holding_by_id(connection, "holdings", "shares", target._updated_shares, target._holding["id"])
