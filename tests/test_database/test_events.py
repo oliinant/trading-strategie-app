@@ -4,19 +4,19 @@ from sqlalchemy.orm import declarative_base
 from uuid import uuid4
 from decimal import Decimal
 from dotenv import load_dotenv
+from datetime import datetime, timezone
 import os
 
-from trading_strategie_bot.database.models import Backtest, Holding, Account, Strategie, Base
+from trading_strategie_bot.database.models import Backtest, Holding, Account, Strategie, Trade, Buy, Sell, Base
 from trading_strategie_bot.database.events import (
-    fetch_backtest_obj_by_id,
-    fetch_holding_by_ticker,
+    fetch_row_by_column,
     require_balance,
     calc_total,
     has_required_items_for_trade,
     calc_new_balance_shares,
     update_balance_holding_by_id,
     create_new_holding,
-    check_holding_exists
+    check_holding_exists,
 )
 
 load_dotenv()
@@ -27,9 +27,15 @@ AccountTable = Account.__table__
 StrategieTable = Strategie.__table__
 BacktestTable = Backtest.__table__
 HoldingTable = Holding.__table__
+TradeTable = Trade.__table__
+BuyTable = Buy.__table__
+SellTable = Sell.__table__
 
 def create_test_object(connection, Table: object, test_data: dict):
     connection.execute(Table.insert(), test_data)
+
+def fetch_trade_by_id(connection, id):
+    connection
 
 @pytest.fixture
 def account_data():
@@ -70,9 +76,51 @@ def holding_data(backtest_data):
         "shares": Decimal(0.5),
     }
     
+@pytest.fixture
+def buy_trade_data(holding_data, backtest_data):
+    return {
+        "id": uuid4(),
+        "backtest_id": backtest_data["id"],
+        "holding_id": holding_data["id"],
+        
+        "ticker": "AAPL",
+        "shares": Decimal(1),
+        "type": "sell"
+    }
 
 @pytest.fixture
-def connection(account_data, strategie_data, backtest_data, holding_data):
+def sell_trade_data(holding_data, backtest_data):
+    return {
+        "id": uuid4(),
+        "backtest_id": backtest_data["id"],
+        "holding_id": holding_data["id"],
+        
+        "ticker": "AAPL",
+        "shares": Decimal(1),
+        "type": "sell"
+    }
+
+@pytest.fixture
+def buy_data(buy_trade_data):
+    return {
+        "id": buy_trade_data["id"],
+    
+        "entry_price": 100,
+        "bought_time": datetime.now(timezone.utc)
+
+    }
+    
+@pytest.fixture
+def sell_data(sell_trade_data):
+    return {
+        "id": sell_trade_data["id"],
+    
+        "exit_price": 100,
+        "sell_time": datetime.now(timezone.utc)
+    }
+
+@pytest.fixture
+def connection(account_data, strategie_data, backtest_data, holding_data, buy_trade_data, buy_data, sell_trade_data,sell_data):
     engine = create_engine(f"{TEST_DATABASE_URL}?options=-csearch_path=test_schema")
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
@@ -84,25 +132,27 @@ def connection(account_data, strategie_data, backtest_data, holding_data):
     create_test_object(conn, StrategieTable, strategie_data)
     create_test_object(conn, BacktestTable, backtest_data)
     create_test_object(conn, HoldingTable, holding_data)
+    create_test_object(conn, TradeTable, buy_trade_data)
+    create_test_object(conn, BuyTable, buy_data)
+    create_test_object(conn, TradeTable, sell_trade_data)
+    create_test_object(conn, SellTable, sell_data)
     
     yield conn
     
     trans.rollback()
     conn.close()
     engine.dispose()
-    
 
-def test_fetch_model_backtest_by_id(connection, backtest_data):
-    backtest = fetch_backtest_obj_by_id(connection, backtest_data["id"])
-
-    assert backtest is not None
-    assert backtest == backtest_data
-
-def test_fetch_holding_by_ticker(connection, holding_data):
-    holding = fetch_holding_by_ticker(connection, holding_data["ticker"])
-    
-    assert holding is not None
-    assert holding == holding_data
+ 
+@pytest.mark.parametrize("table, column_name, fixture_name", [
+    ("backtests", "id", "backtest_data"),
+    ("holdings", "ticker", "holding_data"),
+    ("buys", "id", "buy_data"),
+    ("sells", "id", "sell_data")
+])
+def test_fetch_row_by_column(connection, table, column_name, fixture_name, request):
+    data_fixture = request.getfixturevalue(fixture_name)
+    assert fetch_row_by_column(connection, table, column_name, data_fixture[column_name]) == data_fixture
 
 def test_require_balance():
     with pytest.raises(ValueError):
@@ -133,19 +183,17 @@ def test_calc_new_balance(backtest_balance, total, sign, expected):
     assert calc_new_balance_shares(backtest_balance, total, sign) == Decimal(expected)
 
 def test_update_balance(connection, backtest_data):
-    backtest = fetch_backtest_obj_by_id(connection, backtest_data["id"])
     updated_balance = Decimal(15000)
     update_balance_holding_by_id(connection, "backtests", "balance", updated_balance, backtest_data["id"])
     
-    backtest = fetch_backtest_obj_by_id(connection, backtest_data["id"])
+    backtest = fetch_row_by_column(connection, "backtests", "id", backtest_data["id"])
     assert backtest["balance"] == updated_balance
 
 def test_update_holding(connection, holding_data):
-    holding = fetch_holding_by_ticker(connection, holding_data["ticker"])
     updated_shares = Decimal(1.5)
     update_balance_holding_by_id(connection, "holdings", "shares", updated_shares, holding_data["id"])
     
-    holding = fetch_holding_by_ticker(connection, holding_data["ticker"])
+    holding = fetch_row_by_column(connection, "holdings", "ticker", holding_data["ticker"])
     assert holding["shares"] == updated_shares
 
 def test_create_new_holding(connection, backtest_data):
@@ -153,7 +201,7 @@ def test_create_new_holding(connection, backtest_data):
     shares = Decimal(0.5)
     create_new_holding(connection, backtest_data["id"], ticker, shares)
     
-    holding = fetch_holding_by_ticker(connection, "TSLA")
+    holding = fetch_row_by_column(connection, "holdings", "ticker", ticker)
     assert holding is not None
     assert holding["backtest_id"] == backtest_data["id"]
     assert holding["ticker"] == ticker
@@ -165,7 +213,7 @@ def test_create_new_holding(connection, backtest_data):
 ])
 def test_check_holding_exists(holding_input, expected, connection, holding_data,):
     if holding_input == "placeholder_holding":
-        holding_input = fetch_holding_by_ticker(connection, holding_data["ticker"])
+        holding_input = fetch_row_by_column(connection, "holdings", "ticker", holding_data["ticker"])
         
     assert check_holding_exists(holding_input) == expected
 
