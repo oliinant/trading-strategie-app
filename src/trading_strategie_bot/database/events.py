@@ -2,19 +2,12 @@ from sqlalchemy import text
 from decimal import Decimal
 
 
-def fetch_backtest_obj_by_id(connection, id):
+def fetch_row_by_column(connection, table, column_name, value):
     obj = connection.execute(
-        text("SELECT * FROM backtests WHERE id=:id"), 
-        {"id": id}
+        text(f"SELECT * FROM table WHERE {column_name}=:{column_name}"), 
+        {column_name: value}
     ).mappings().fetchone()
     return None if obj is None else obj
-
-def fetch_holding_by_ticker(connection, ticker):
-    holding = connection.execute(
-        text("SELECT * FROM holdings WHERE ticker=:ticker"), 
-        {"ticker": ticker}
-    ).mappings().fetchone()
-    return None if holding is None else holding
 
 def require_balance(balance):
     if balance is None:
