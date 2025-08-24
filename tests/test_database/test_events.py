@@ -147,4 +147,29 @@ def test_update_holding(connection, holding_data):
     
     holding = fetch_holding_by_ticker(connection, holding_data["ticker"])
     assert holding["shares"] == updated_shares
+
+def test_create_new_holding(connection, backtest_data):
+    ticker = "TSLA"
+    shares = Decimal(0.5)
+    create_new_holding(connection, backtest_data["id"], ticker, shares)
+    
+    holding = fetch_holding_by_ticker(connection, "TSLA")
+    assert holding is not None
+    assert holding["backtest_id"] == backtest_data["id"]
+    assert holding["ticker"] == ticker
+    assert holding["shares"] == shares
+
+@pytest.mark.parametrize("holding_input, expected", [
+    (None, False),
+    ("placeholder_holding", True)
+])
+def test_check_holding_exists(holding_input, expected, connection, holding_data,):
+    if holding_input == "placeholder_holding":
+        holding_input = fetch_holding_by_ticker(connection, holding_data["ticker"])
+        
+    assert check_holding_exists(holding_input) == expected
+
+
+
+
     
