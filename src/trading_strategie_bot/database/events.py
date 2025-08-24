@@ -36,10 +36,10 @@ def update_balance_holding_by_id(connection, table, value_to_update, new_value, 
         {value_to_update: new_value, "id": id}
     )
 
-def create_new_holding(connection, backtests_id, ticker, bought_shares):
+def create_new_holding(connection, backtest_id, ticker, bought_shares):
         connection.execute(
-            text("INSERT INTO holdings (backtests_id, ticker, shares) VALUES (:backtests_id, :ticker, :shares)"),
-            {"backtests_id": backtests_id, "ticker": ticker, "shares": bought_shares}
+            text("INSERT INTO holdings (backtest_id, ticker, shares) VALUES (:backtest_id, :ticker, :shares)"),
+            {"backtest_id": backtest_id, "ticker": ticker, "shares": bought_shares}
         )  
 
 def check_holding_exists(holding):
