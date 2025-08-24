@@ -4,7 +4,7 @@ from decimal import Decimal
 
 def fetch_row_by_column(connection, table, column_name, value):
     row = connection.execute(
-        text(f"SELECT * FROM table WHERE {column_name}=:{column_name}"), 
+        text(f"SELECT * FROM {table} WHERE {column_name}=:{column_name}"), 
         {column_name: value}
     ).mappings().fetchone()
     return None if row is None else row
