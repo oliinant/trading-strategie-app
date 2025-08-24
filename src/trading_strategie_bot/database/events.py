@@ -43,7 +43,7 @@ def check_holding_exists(holding):
 
 
 def prepare_backtest_for_buy_in(connection, target):
-    target._backtest = fetch_backtest_obj_by_id(connection, target.backtest_id)
+    target._backtest = fetch_row_by_column(connection, "tests", "id", target.backtest_id)
     require_balance(target._backtest)
     
     total_cost = calc_total(target.shares, target.entry_price)
@@ -52,7 +52,7 @@ def prepare_backtest_for_buy_in(connection, target):
     return calc_new_balance_shares(target._backtest["balance"], total_cost, -1)
 
 def prepare_holding_for_buy_in(connection, target):
-    target._holding = fetch_holding_by_ticker(connection, target.ticker)
+    target._holding = fetch_row_by_column(connection, "holdings", "ticker", target.ticker)
     
     if check_holding_exists(target._holding):
         return calc_new_balance_shares(target._holding["shares"], target.shares, 1)
@@ -60,7 +60,7 @@ def prepare_holding_for_buy_in(connection, target):
 
 
 def prepare_backtest_for_exit(connection, target):
-    target._backtest = fetch_backtest_obj_by_id(connection, target.backtest_id)
+    target._backtest = fetch_row_by_column(connection, "tests", "id", target.backtest_id)
     require_balance(target._backtest["balance"])
     
     total_profit = calc_total(target.shares, target.exit_price)
@@ -68,7 +68,7 @@ def prepare_backtest_for_exit(connection, target):
     return calc_new_balance_shares(target._backtest["balance"], total_profit, 1)
 
 def prepare_holding_for_exit(connection, target):
-    target._holding = fetch_holding_by_ticker(connection, target.ticker)
+    target._holding = fetch_row_by_column(connection, "holdings", "ticker", target.ticker)
     if check_holding_exists(target._holding):
         raise ValueError("Error: Share does not exist on backtest")
     
