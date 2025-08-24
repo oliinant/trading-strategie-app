@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, UUID, String, DECIMAL, ForeignKey, Integer, JSON, DateTime, UniqueConstraint, event
+from sqlalchemy import create_engine, Column, UUID, String, DECIMAL, ForeignKey, Integer, JSON, DateTime, UniqueConstraint, event, text
 import uuid
 from sqlalchemy.orm import declarative_base, declared_attr, relationship
 from datetime import datetime, timezone
@@ -27,7 +27,7 @@ class BaseModel(Base):
     
     @declared_attr
     def id(cls):
-        return Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+        return Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
 
 class Account(BaseModel):
     __tablename__ = "accounts"
