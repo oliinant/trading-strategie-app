@@ -3,11 +3,11 @@ from decimal import Decimal
 
 
 def fetch_row_by_column(connection, table, column_name, value):
-    obj = connection.execute(
+    row = connection.execute(
         text(f"SELECT * FROM table WHERE {column_name}=:{column_name}"), 
         {column_name: value}
     ).mappings().fetchone()
-    return None if obj is None else obj
+    return None if row is None else row
 
 def require_balance(balance):
     if balance is None:
