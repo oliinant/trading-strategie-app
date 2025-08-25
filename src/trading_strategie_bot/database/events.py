@@ -1,6 +1,6 @@
-from sqlalchemy import text
+from sqlalchemy import text, event
 from decimal import Decimal
-
+from .models import Buy, Sell
 
 def fetch_row_by_column(connection, table, column_name, value):
     row = connection.execute(
@@ -75,4 +75,29 @@ def prepare_holding_for_exit(connection, target):
     has_required_items_for_trade(target.holding["shares"], target.shares, "shares")
     
     return calc_new_balance_shares(target._holding["shares"], target.shares, -1)
+
+
+@event.listens_for(Buy, "before_insert")
+def validate_buy_in(mapper, connection, target):
+    target._updated_balance = prepare_backtest_for_buy_in
+    target._updated_shares = prepare_holding_for_buy_in
     
+@event.listens_for(Buy, "after_insert")
+def update_backtest_buy(mapper, connection, target):
+    update_balance_holding_by_id(connection, "backtests", target._backtest["balance"], target._updated_balance, target.backtest["id"])
+    
+    if target._updated_shares:
+        update_balance_holding_by_id(connection, "holdings", target._holding["shares"], target._updated_shares, target.holding["id"])
+    else:
+        create_new_holding(connection, target._backtest["id"], target.ticker, target.shares)
+
+
+@event.listens_for(Sell, "before_insert")
+def validate_exit(mapper, connection, target):
+    target._updated_balance = prepare_backtest_for_exit()
+    target._updated_shares = prepare_holding_for_exit()
+    
+@event.listens_for(Sell, "after_insert")
+def update_data_sell(mapper, connection, target):
+    update_balance_holding_by_id(connection, "backtests", "balance", target._updated_balance, target._backtest["id"])
+    update_balance_holding_by_id(connection, "holdings", "shares", target._updated_shares, target._holding["id"])
