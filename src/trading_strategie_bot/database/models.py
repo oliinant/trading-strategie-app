@@ -1,9 +1,8 @@
 from sqlalchemy import create_engine, Column, UUID, String, DECIMAL, ForeignKey, Integer, JSON, DateTime, UniqueConstraint, event, text
 import uuid
+from .session import Base
 from sqlalchemy.orm import declarative_base, declared_attr, relationship
 from datetime import datetime, timezone
-from dotenv import load_dotenv
-import os
 from .events import (
     prepare_backtest_for_buy_in,
     prepare_holding_for_buy_in,
@@ -13,14 +12,6 @@ from .events import (
     create_new_holding
     
 )
-
-load_dotenv()
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-engine = create_engine(DATABASE_URL, echo=True)
-Base = declarative_base()
-
 
 class BaseModel(Base):
     __abstract__ = True
