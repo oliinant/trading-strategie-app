@@ -34,9 +34,6 @@ SellTable = Sell.__table__
 def create_test_object(connection, Table: object, test_data: dict):
     connection.execute(Table.insert(), test_data)
 
-def fetch_trade_by_id(connection, id):
-    connection
-
 @pytest.fixture
 def account_data():
     return {
@@ -216,8 +213,3 @@ def test_check_holding_exists(holding_input, expected, connection, holding_data,
         holding_input = fetch_row_by_column(connection, "holdings", "ticker", holding_data["ticker"])
         
     assert check_holding_exists(holding_input) == expected
-
-
-
-
-    
